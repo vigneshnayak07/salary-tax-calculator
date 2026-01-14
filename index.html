@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html><head> 
+  <h4 style="text-align:center;color:gray;">Built by Vignesh Nayak</h4>
+  <title>Salary & Tax Calculator</title></head>
+<body style="font-family: Arial; background:#f4f6f8;">
+<div style="max-width:420px; margin:auto; background:white; padding:20px; border-radius:10px; box-shadow:0 0 10px #ccc;">
+<h2 style="text-align:center;">Salary & Tax Calculator</h2>
+<input id="ctc" placeholder="Enter CTC" style="width:100%; padding:10px;"><br><br>
+<input id="hraReceived" placeholder="HRA Received" style="width:100%; padding:10px;"><br><br>
+<input id="rentPaid" placeholder="Annual Rent Paid" style="width:100%; padding:10px;"><br><br>
+<input id="metro" placeholder="Metro city? (yes/no)" style="width:100%; padding:10px;"><br><br>
+<input id="ded80c" placeholder="80C Deduction" style="width:100%; padding:10px;"><br><br>
+<input id="ded80d" placeholder="80D Deduction" style="width:100%; padding:10px;"><br><br>
+<button type="button"
+onclick="calculate()" style="width:100%; padding:10px; background:#007bff; color:white; border:none; border-radius:5px;">Calculate</button>
+<pre id="output" style="margin-top:15px; background:#f1f1f1; padding:10px;"></pre>
+<br><br>
+<button type="button" onclick="downloadPDF()" 
+style="width:100%; padding:10px; background:#28a745; color:white; border:none; border-radius:5px;">
+Download PDF
+</button>
+<pre id="output" style="white-space: pre-wrap; background: #f1f1f1; padding: 10px;"></pre>
+</div>
+<script>
+  function formatNumber(num) {
+  return num.toLocaleString("en-IN");
+}
+// ================= CONSTANT =================
+const STANDARD_DEDUCTION = 50000;
+
+// ================= SALARY =================
+function calculateSalary(ctc) 
+{
+  let basic = ctc * 0.40;
+  let pf = basic * 0.12;
+  return {
+  basic: basic,  
+  pf:  pf
+};
+}
+
+// ================= TAXABLE INCOME =================
+
+function calculateTaxableIncome(ctc, pf, d80c, d80d, hra, regime) 
+{
+let taxable = ctc - STANDARD_DEDUCTION;
+if (regime === "OLD") 
+{ taxable = taxable - pf - d80c - d80d - hra; 
+
+}
+if (taxable < 0) taxable = 0;
+return taxable;}
+
+// ================= OLD REGIME TAX =================
+
+function calculateOldTax(income) 
+{ 
+  let tax = 0;
+if (income <= 250000) 
+{tax = 0; 
+
+} else if (income <= 500000) 
+{
+  tax = (income - 250000) * 0.05; 
+} 
+else if (income <= 1000000) 
+{ 
+  tax = (250000 * 0.05) + (income - 500000) * 0.20; 
+} 
+else 
+{ 
+  tax = (250000 * 0.05) + (500000 * 0.20) + (income - 1000000) * 0.30; 
+}
+return Math.round(tax);
+}
+
+// ================= NEW REGIME TAX =================
+function calculateNewTax(income) {
+income = Number(income); let tax = 0;
+if (income <= 300000) 
+{
+  tax = 0;
+}
+else if (income <= 600000) 
+{ 
+  tax = (income - 300000) * 0.05;
+}
+else if (income <= 900000) 
+{tax = (300000 * 0.05) + (income - 600000) * 0.10; 
+
+} 
+else if (income <= 1200000) 
+{
+  tax = (300000 * 0.05) + (300000 * 0.10) + (income - 900000) * 0.15;
+} else if (income <= 1500000) 
+{
+  tax = (300000 * 0.05) + (300000 * 0.10) + (300000 * 0.15) + (income - 1200000) * 0.20;
+ } 
+ else 
+ {
+  tax = (300000 * 0.05) + (300000 * 0.10) + (300000 * 0.15) + (300000 * 0.20) + (income - 1500000) * 0.30; 
+}
+
+// Section 87A rebate  
+if (income <= 700000) {
+  tax = 0;
+}
+return Math.round(tax);
+}
+// ================= HRA CALCULATE =================
+function calculateHRAExemption(basic, hraReceived, rentPaid, isMetro) {
+
+  let percBasic = isMetro ? basic * 0.50 : basic * 0.40;
+  let rentMinus10 = rentPaid - (basic * 0.10);
+
+  if (rentMinus10 < 0) rentMinus10 = 0;
+
+  return Math.min(hraReceived, rentMinus10, percBasic);
+}
+// ================= MAIN CALCULATE =================
+function calculate() {
+let ctc = Number(document.getElementById("ctc").value);
+let hraReceived = Number(document.getElementById("hraReceived").value);
+let rentPaid = Number(document.getElementById("rentPaid").value);
+let metro = document.getElementById("metro").value.toLowerCase() === "yes"; 
+let d80c = Number(document.getElementById("ded80c").value);
+let d80d = Number(document.getElementById("ded80d").value);
+if (!ctc || ctc <= 0) { alert("Please enter valid CTC");return; }
+let salary = calculateSalary(ctc);
+// Calculate HRA exemption FIRST  
+let hraExemption = calculateHRAExemption(salary.basic,hraReceived, rentPaid, metro );
+// Now use it in taxable income  
+let oldTaxable = calculateTaxableIncome(ctc, salary.pf, d80c, d80d, hraExemption, "OLD" );
+let newTaxable = calculateTaxableIncome( ctc, salary.pf, d80c, d80d,hraExemption, "NEW" );
+let oldTax = calculateOldTax(oldTaxable); 
+let newTax = calculateNewTax(newTaxable);
+let best = oldTax < newTax ? "Old Regime" : "New Regime"; 
+let saving = Math.abs(oldTax - newTax);
+ document.getElementById("output").innerText = "CTC: ₹" + formatNumber(ctc) + 
+ "\nBasic: ₹" + formatNumber(salary.basic) +
+  "\nPF: ₹" + formatNumber(salary.pf) +
+ "\n\nHRA Exemption: ₹" + formatNumber(hraExemption) +
+ "\n\nOld Regime Taxable Income: ₹" + formatNumber(oldTaxable) + 
+ "\nNew Regime Taxable Income: ₹" + formatNumber(newTaxable) +
+ "\n\nOld Regime Tax: ₹" + formatNumber(oldTax) +
+  "\nNew Regime Tax: ₹" + formatNumber(newTax) +
+ "\n\nBest Regime: " + best + "\nYou Save: ₹" + formatNumber(saving);
+}
+function downloadPDF() {
+  window.print();
+}
+</script>
+</body></html>
